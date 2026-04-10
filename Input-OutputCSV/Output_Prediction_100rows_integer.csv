@@ -1,0 +1,10 @@
+row#,floor,time_slot,required_pressure_bar,required_flow_rate_lpm,pump_speed_percent,valve_command,predicted_water_amount_liters,digital_twin
+1,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+2,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+3,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+4,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+5,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+6,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+7,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+8,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"
+9,1,Morning,3.17,22.26,76.67,ON,751,"{'simulated_pressure_bar': np.float64(3.53), 'simulated_flow_lpm': np.float64(76.67), 'energy_consumption_kw': np.float64(2.48), 'status': 'Running'}"

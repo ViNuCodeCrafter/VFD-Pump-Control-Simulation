@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Industrial Pump SCADA</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1524;
+    --panel: #141c2c;
+    --border: rgba(110, 125, 145, 0.45);
+    --accent: #7d9a8a;
+    --text: #e4eaf0;
+    --muted: #8b98ab;
+    --danger: #b85c5c;
+    --warn: #c9a227;
+    --ok: #6d9b7a;
+    --blue: #6b8ec9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 14px 16px 20px;
+    background-image:
+      linear-gradient(rgba(30, 42, 62, 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30, 42, 62, 0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #aab8c8;
+    margin-bottom: 14px;
+  }
+  .grid-top {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 1200px;
+    margin: 0 auto 14px;
+  }
+  .card {
+    background: linear-gradient(165deg, #182234 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+  .card-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .bar-wrap {
+    height: 22px;
+    background: #0a1018;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(80, 90, 105, 0.5);
+    margin-top: 8px;
+  }
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4a6b58, var(--ok));
+    border-radius: 4px;
+  }
+  .grid-mid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr 1fr;
+    gap: 10px;
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    align-items: start;
+  }
+  .gauge-panel {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+  }
+  .gauge-panel svg { display: block; filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.35)); }
+  .center-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pipe-svg-wrap {
+    background: linear-gradient(180deg, #161e2e 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    isolation: isolate;
+  }
+  .main-gauge-wrap {
+    background: linear-gradient(180deg, #161e2e 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px 10px;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  .valve-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .valve-open { color: var(--ok); }
+  .valve-closed { color: var(--danger); }
+  .chart-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, #161e2e 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    height: 260px;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  @media (max-width: 900px) {
+    .grid-top { grid-template-columns: 1fr; }
+    .grid-mid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<h1>Pump System — Live Telemetry</h1>
+
+<div class="grid-top">
+  <div class="card">
+    <div class="card-label">Pump Speed</div>
+    <div class="card-value"><span id="disp-speed">0</span> %</div>
+    <div class="bar-wrap"><div class="bar-fill" id="speed-bar"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Energy</div>
+    <div class="card-value"><span id="disp-energy">0.00</span> kW</div>
+  </div>
+  <div class="card">
+    <div class="card-label">System Pressure (sim)</div>
+    <div class="card-value"><span id="disp-press">0.00</span> bar</div>
+  </div>
+</div>
+
+<div class="grid-mid">
+  <div class="gauge-panel" id="suction-gauge-host"></div>
+  <div class="center-col">
+    <div class="pipe-svg-wrap">
+      <svg id="pipe-system" viewBox="0 0 400 220" width="100%" height="auto" aria-label="Pipe system">
+        <defs>
+          <linearGradient id="tankGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#3d4a5c"/>
+            <stop offset="100%" style="stop-color:#252d3a"/>
+          </linearGradient>
+          <linearGradient id="tankFace" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#2a3342"/>
+            <stop offset="35%" style="stop-color:#3a4556"/>
+            <stop offset="100%" style="stop-color:#252d3a"/>
+          </linearGradient>
+          <linearGradient id="pipeSteel" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#7d8b98"/>
+            <stop offset="45%" style="stop-color:#6b7c8c"/>
+            <stop offset="100%" style="stop-color:#525d6a"/>
+          </linearGradient>
+          <linearGradient id="tankFillGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" style="stop-color:#2a4550;stop-opacity:0.88"/>
+            <stop offset="100%" style="stop-color:#4a6b72;stop-opacity:0.45"/>
+          </linearGradient>
+          <clipPath id="clip-tank-left">
+            <rect x="14" y="42" width="52" height="148" rx="4"/>
+          </clipPath>
+          <clipPath id="clip-tank-right">
+            <rect x="318" y="22" width="60" height="88" rx="4"/>
+          </clipPath>
+        </defs>
+        <rect x="12" y="40" width="56" height="152" rx="4" fill="url(#tankFace)" stroke="#5a6575" stroke-width="1.5"/>
+        <rect x="12" y="40" width="56" height="152" rx="4" fill="none" stroke="#8a96a8" stroke-width="0.75" opacity="0.5"/>
+        <g clip-path="url(#clip-tank-left)">
+          <rect id="tank-fill-left" x="14" y="118" width="52" height="72" fill="url(#tankFillGrad)" stroke="none"/>
+        </g>
+        <text id="tank-level-left" x="40" y="154" text-anchor="middle" dominant-baseline="middle" fill="#d8e4ec" font-size="11" font-weight="600" font-family="Segoe UI,sans-serif">—</text>
+        <path id="pipe-suction" fill="none" stroke="url(#pipeSteel)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" d="M 40 192 L 70 192 A 14 14 0 0 1 84 178 L 84 144 L 126 144"/>
+        <path id="flow-suction" fill="none" stroke="#7a8f88" stroke-width="3.5" stroke-dasharray="7 11" stroke-linecap="round" stroke-linejoin="round" opacity="0.48" d="M 40 192 L 70 192 A 14 14 0 0 1 84 178 L 84 144 L 126 144"/>
+        <path id="pipe-bridge" fill="none" stroke="url(#pipeSteel)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" d="M 126 144 L 214 144"/>
+        <path id="flow-bridge" fill="none" stroke="#7a8f88" stroke-width="3.5" stroke-dasharray="7 11" stroke-linecap="round" stroke-linejoin="round" opacity="0.48" d="M 126 144 L 214 144"/>
+        <path id="pipe-dis" fill="none" stroke="url(#pipeSteel)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" d="M 214 144 L 254 144 A 14 14 0 0 0 268 130 L 268 52 A 14 14 0 0 1 282 38 L 346 38 L 346 24"/>
+        <path id="flow-dis" fill="none" stroke="#7a8f88" stroke-width="3.5" stroke-dasharray="7 11" stroke-linecap="round" stroke-linejoin="round" opacity="0.48" d="M 214 144 L 254 144 A 14 14 0 0 0 268 130 L 268 52 A 14 14 0 0 1 282 38 L 346 38 L 346 24"/>
+        <rect id="valve-v1" x="88" y="128" width="30" height="30" rx="1" fill="#2a3228" stroke="#5a7a62" stroke-width="1.5"/>
+        <text id="valve-v1-label" x="103" y="147" text-anchor="middle" fill="#c5d0d8" font-size="11" font-weight="600" font-family="Segoe UI,sans-serif">V1</text>
+        <g id="pump" transform="translate(170, 144)">
+          <rect x="-44" y="-26" width="88" height="52" rx="6" fill="#2b3442" stroke="#6a7688" stroke-width="1.5"/>
+          <rect x="-36" y="-18" width="72" height="36" rx="5" fill="#202836" stroke="#4f5b6b" stroke-width="1"/>
+          <circle cx="-18" cy="0" r="10" fill="#2b3442" stroke="#6a7688" stroke-width="1"/>
+          <circle cx="-18" cy="0" r="4" fill="#141c2c" stroke="#8a96a8" stroke-width="0.75"/>
+          <rect x="2" y="-12" width="30" height="24" rx="3" fill="#263040" stroke="#556273" stroke-width="1"/>
+          <text x="17" y="4" text-anchor="middle" fill="#d8e4ec" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">PUMP</text>
+        </g>
+        <rect id="valve-v2" x="222" y="128" width="30" height="30" rx="1" fill="#2a3228" stroke="#5a7a62" stroke-width="1.5"/>
+        <text id="valve-v2-label" x="237" y="147" text-anchor="middle" fill="#c5d0d8" font-size="11" font-weight="600" font-family="Segoe UI,sans-serif">V2</text>
+        <rect x="316" y="20" width="64" height="92" rx="4" fill="url(#tankFace)" stroke="#5a6575" stroke-width="1.5"/>
+        <rect x="316" y="20" width="64" height="92" rx="4" fill="none" stroke="#8a96a8" stroke-width="0.75" opacity="0.5"/>
+        <g clip-path="url(#clip-tank-right)">
+          <rect id="tank-fill-right" x="320" y="62" width="56" height="48" fill="url(#tankFillGrad)" stroke="none"/>
+        </g>
+        <text id="tank-level-right" x="348" y="80" text-anchor="middle" dominant-baseline="middle" fill="#d8e4ec" font-size="11" font-weight="600" font-family="Segoe UI,sans-serif">—</text>
+      </svg>
+    </div>
+    <div class="valve-row" id="valve-status">🟢 VALVE OPEN</div>
+    <div class="main-gauge-wrap" id="main-gauge-host"></div>
+  </div>
+  <div class="gauge-panel" id="discharge-gauge-host"></div>
+</div>
+
+<div class="chart-wrap">
+  <canvas id="press-chart"></canvas>
+</div>
+
+<script>
+(function () {
+  const MIN_ANGLE = -120;
+  const MAX_ANGLE = 120;
+  const RANGE = MAX_ANGLE - MIN_ANGLE;
+
+  function valueToAngle(v, minV, maxV) {
+    const t = Math.max(0, Math.min(1, (v - minV) / (maxV - minV)));
+    return MIN_ANGLE + t * RANGE;
+  }
+
+  function polar(cx, cy, r, deg) {
+    // Offset by -90 so 0° = 12 o'clock, matching SVG rotate() convention
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
+  function arcPath(cx, cy, r, a0, a1) {
+    const p0 = polar(cx, cy, r, a0);
+    const p1 = polar(cx, cy, r, a1);
+    const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
+    return `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${large} 1 ${p1.x} ${p1.y}`;
+  }
+
+  function createDialGauge(hostId, options) {
+    const {
+      label,
+      titleTop,
+      minV,
+      maxV,
+      unit,
+      unitScale = 1,
+      zones,
+      zoneStyle = "sdo",
+      size = 200,
+      cx = 100,
+      cy = 108,
+      r = 76,
+      filterId = "gf-" + hostId.replace(/[^a-z0-9]/gi, ""),
+    } = options;
+
+    const baseId = "dg-" + hostId.replace(/[^a-z0-9]/gi, "");
+    const tickInnerMaj = r - 10;
+    const tickOuterMaj = r - 2;
+    const tickInnerMin = r - 8;
+    const tickOuterMin = r - 3;
+    const scaleLabelR = r - 24;
+    const trackR = r + 12;
+
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+    svg.setAttribute("width", size);
+    svg.setAttribute("height", size);
+
+    const defs = document.createElementNS(ns, "defs");
+
+    const fNeedle = document.createElementNS(ns, "filter");
+    fNeedle.setAttribute("id", filterId);
+    fNeedle.setAttribute("x", "-35%");
+    fNeedle.setAttribute("y", "-35%");
+    fNeedle.setAttribute("width", "170%");
+    fNeedle.setAttribute("height", "170%");
+    const nb = document.createElementNS(ns, "feGaussianBlur");
+    nb.setAttribute("stdDeviation", "0.65");
+    nb.setAttribute("result", "blur");
+    const nmerge = document.createElementNS(ns, "feMerge");
+    const n1 = document.createElementNS(ns, "feMergeNode");
+    n1.setAttribute("in", "blur");
+    const n2 = document.createElementNS(ns, "feMergeNode");
+    n2.setAttribute("in", "SourceGraphic");
+    nmerge.appendChild(n1);
+    nmerge.appendChild(n2);
+    fNeedle.appendChild(nb);
+    fNeedle.appendChild(nmerge);
+    defs.appendChild(fNeedle);
+
+    const fRingSh = document.createElementNS(ns, "filter");
+    fRingSh.setAttribute("id", baseId + "-ringin");
+    const fIn = document.createElementNS(ns, "feOffset");
+    fIn.setAttribute("dx", "0");
+    fIn.setAttribute("dy", "2");
+    fIn.setAttribute("in", "SourceAlpha");
+    fIn.setAttribute("result", "off");
+    const fBlur = document.createElementNS(ns, "feGaussianBlur");
+    fBlur.setAttribute("in", "off");
+    fBlur.setAttribute("stdDeviation", "2");
+    fBlur.setAttribute("result", "blur");
+    const fCol = document.createElementNS(ns, "feColorMatrix");
+    fCol.setAttribute("in", "blur");
+    fCol.setAttribute("type", "matrix");
+    fCol.setAttribute("values", "0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.45 0");
+    fCol.setAttribute("result", "shadow");
+    const fMerge = document.createElementNS(ns, "feMerge");
+    const fm1 = document.createElementNS(ns, "feMergeNode");
+    fm1.setAttribute("in", "shadow");
+    const fm2 = document.createElementNS(ns, "feMergeNode");
+    fm2.setAttribute("in", "SourceGraphic");
+    fMerge.appendChild(fm1);
+    fMerge.appendChild(fm2);
+    fRingSh.appendChild(fIn);
+    fRingSh.appendChild(fBlur);
+    fRingSh.appendChild(fCol);
+    fRingSh.appendChild(fMerge);
+    defs.appendChild(fRingSh);
+
+    function zoneStops(i) {
+      if (zoneStyle === "main") {
+        if (i === 0) return ["#5080a0", "#487858"];
+        if (i === 1) return ["#487858", "#5a9070"];
+        return ["#5a9070", "#a05852"];
+      }
+      if (i === 0) return ["#a85a52", "#4a7a62"];
+      if (i === 1) return ["#4a7a62", "#5a8a6e"];
+      return ["#5a8a6e", "#b8925a"];
+    }
+
+    zones.forEach(function (z, zi) {
+      const a0 = valueToAngle(z.from, minV, maxV);
+      const a1 = valueToAngle(z.to, minV, maxV);
+      const pS = polar(cx, cy, r, a0);
+      const pE = polar(cx, cy, r, a1);
+      const lg = document.createElementNS(ns, "linearGradient");
+      lg.setAttribute("id", baseId + "-z" + zi);
+      lg.setAttribute("gradientUnits", "userSpaceOnUse");
+      lg.setAttribute("x1", pS.x);
+      lg.setAttribute("y1", pS.y);
+      lg.setAttribute("x2", pE.x);
+      lg.setAttribute("y2", pE.y);
+      const st = zoneStops(zi);
+      const s0 = document.createElementNS(ns, "stop");
+      s0.setAttribute("offset", "0%");
+      s0.setAttribute("stop-color", st[0]);
+      const s1 = document.createElementNS(ns, "stop");
+      s1.setAttribute("offset", "100%");
+      s1.setAttribute("stop-color", st[1]);
+      lg.appendChild(s0);
+      lg.appendChild(s1);
+      defs.appendChild(lg);
+    });
+
+    const glassGrad = document.createElementNS(ns, "radialGradient");
+    glassGrad.setAttribute("id", baseId + "-glass");
+    glassGrad.setAttribute("cx", "40%");
+    glassGrad.setAttribute("cy", "35%");
+    glassGrad.setAttribute("r", "65%");
+    const gs0 = document.createElementNS(ns, "stop");
+    gs0.setAttribute("offset", "0%");
+    gs0.setAttribute("stop-color", "#ffffff");
+    gs0.setAttribute("stop-opacity", "0.14");
+    const gs1 = document.createElementNS(ns, "stop");
+    gs1.setAttribute("offset", "55%");
+    gs1.setAttribute("stop-color", "#a8c8e8");
+    gs1.setAttribute("stop-opacity", "0.04");
+    const gs2 = document.createElementNS(ns, "stop");
+    gs2.setAttribute("offset", "100%");
+    gs2.setAttribute("stop-color", "#000000");
+    gs2.setAttribute("stop-opacity", "0.12");
+    glassGrad.appendChild(gs0);
+    glassGrad.appendChild(gs1);
+    glassGrad.appendChild(gs2);
+    defs.appendChild(glassGrad);
+
+    const nFill = document.createElementNS(ns, "linearGradient");
+    nFill.setAttribute("id", baseId + "-needlefill");
+    nFill.setAttribute("x1", "0%");
+    nFill.setAttribute("y1", "0%");
+    nFill.setAttribute("x2", "0%");
+    nFill.setAttribute("y2", "100%");
+    const nf0 = document.createElementNS(ns, "stop");
+    nf0.setAttribute("offset", "0%");
+    nf0.setAttribute("stop-color", "#fff8f0");
+    const nf1 = document.createElementNS(ns, "stop");
+    nf1.setAttribute("offset", "100%");
+    nf1.setAttribute("stop-color", "#c8a090");
+    nFill.appendChild(nf0);
+    nFill.appendChild(nf1);
+    defs.appendChild(nFill);
+
+    svg.appendChild(defs);
+
+    const trackOuter = document.createElementNS(ns, "circle");
+    trackOuter.setAttribute("cx", cx);
+    trackOuter.setAttribute("cy", cy);
+    trackOuter.setAttribute("r", trackR);
+    trackOuter.setAttribute("fill", "none");
+    trackOuter.setAttribute("stroke", "#1a222c");
+    trackOuter.setAttribute("stroke-width", "16");
+    trackOuter.setAttribute("filter", "url(#" + baseId + "-ringin)");
+    svg.appendChild(trackOuter);
+
+    const trackInner = document.createElementNS(ns, "circle");
+    trackInner.setAttribute("cx", cx);
+    trackInner.setAttribute("cy", cy);
+    trackInner.setAttribute("r", trackR - 5);
+    trackInner.setAttribute("fill", "none");
+    trackInner.setAttribute("stroke", "#0a0e14");
+    trackInner.setAttribute("stroke-width", "4");
+    trackInner.setAttribute("opacity", "0.55");
+    svg.appendChild(trackInner);
+
+    const gZones = document.createElementNS(ns, "g");
+    zones.forEach(function (z, zi) {
+      const path = document.createElementNS(ns, "path");
+      const a0 = valueToAngle(z.from, minV, maxV);
+      const a1 = valueToAngle(z.to, minV, maxV);
+      path.setAttribute("d", arcPath(cx, cy, r, a0, a1));
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "url(#" + baseId + "-z" + zi + ")");
+      path.setAttribute("stroke-width", "18");
+      path.setAttribute("stroke-linecap", "round");
+      gZones.appendChild(path);
+    });
+    svg.appendChild(gZones);
+
+    const tickCount = 32;
+    const majors = options.majors || [0, Math.round(maxV*0.25), Math.round(maxV*0.5), Math.round(maxV*0.75), maxV];
+    for (let i = 0; i <= tickCount; i++) {
+      const t = i / tickCount;
+      const ang = MIN_ANGLE + t * RANGE;
+      const pIn = polar(cx, cy, tickInnerMin, ang);
+      const pOut = polar(cx, cy, tickOuterMin, ang);
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", pIn.x);
+      line.setAttribute("y1", pIn.y);
+      line.setAttribute("x2", pOut.x);
+      line.setAttribute("y2", pOut.y);
+      line.setAttribute("stroke", "#5a7088");
+      line.setAttribute("stroke-width", "1");
+      line.setAttribute("opacity", "0.72");
+      svg.appendChild(line);
+    }
+
+    majors.forEach(function (mv) {
+      const ang = valueToAngle(mv, minV, maxV);
+      const pIn = polar(cx, cy, tickInnerMaj, ang);
+      const pOut = polar(cx, cy, tickOuterMaj, ang);
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", pIn.x);
+      line.setAttribute("y1", pIn.y);
+      line.setAttribute("x2", pOut.x);
+      line.setAttribute("y2", pOut.y);
+      line.setAttribute("stroke", "#c8dce8");
+      line.setAttribute("stroke-width", "2.4");
+      line.setAttribute("opacity", "0.95");
+      svg.appendChild(line);
+    });
+
+    majors.forEach(function (mv) {
+      const ang = valueToAngle(mv, minV, maxV);
+      const pt = polar(cx, cy, scaleLabelR, ang);
+      const num = document.createElementNS(ns, "text");
+      num.setAttribute("x", pt.x);
+      num.setAttribute("y", pt.y + 4);
+      num.setAttribute("text-anchor", "middle");
+      num.setAttribute("fill", "#b8cce0");
+      num.setAttribute("font-size", "11");
+      num.setAttribute("font-weight", "700");
+      num.setAttribute("font-family", "Segoe UI, sans-serif");
+      num.textContent = String(mv);
+      svg.appendChild(num);
+    });
+
+    const tipLen = r - 5;
+    const halfW = 4.5;
+    const needlePts = cx + "," + (cy - tipLen) + " " + (cx - halfW) + "," + (cy + 5) + " " + (cx + halfW) + "," + (cy + 5);
+
+    const needleRoot = document.createElementNS(ns, "g");
+    needleRoot.setAttribute("transform", "rotate(" + MIN_ANGLE + " " + cx + " " + cy + ")");
+
+    const needleSh = document.createElementNS(ns, "polygon");
+    needleSh.setAttribute("points", needlePts);
+    needleSh.setAttribute("fill", "#000000");
+    needleSh.setAttribute("opacity", "0.22");
+    needleSh.setAttribute("transform", "translate(0.8,1.2)");
+    needleSh.setAttribute("filter", "url(#" + filterId + ")");
+    needleRoot.appendChild(needleSh);
+
+    const needlePoly = document.createElementNS(ns, "polygon");
+    needlePoly.setAttribute("points", needlePts);
+    needlePoly.setAttribute("fill", "url(#" + baseId + "-needlefill)");
+    needlePoly.setAttribute("stroke", "#fff5e8");
+    needlePoly.setAttribute("stroke-width", "0.6");
+    needlePoly.setAttribute("filter", "url(#" + filterId + ")");
+    needleRoot.appendChild(needlePoly);
+
+    svg.appendChild(needleRoot);
+
+    const capOuter = document.createElementNS(ns, "circle");
+    capOuter.setAttribute("cx", cx);
+    capOuter.setAttribute("cy", cy);
+    capOuter.setAttribute("r", "8");
+    capOuter.setAttribute("fill", "#1a222a");
+    capOuter.setAttribute("stroke", "#5f6e7e");
+    capOuter.setAttribute("stroke-width", "1.75");
+    capOuter.setAttribute("filter", "url(#" + filterId + ")");
+    svg.appendChild(capOuter);
+
+    const capInner = document.createElementNS(ns, "circle");
+    capInner.setAttribute("cx", cx);
+    capInner.setAttribute("cy", cy);
+    capInner.setAttribute("r", "4");
+    capInner.setAttribute("fill", "#3a4550");
+    capInner.setAttribute("stroke", "#8ab");
+    capInner.setAttribute("stroke-width", "0.5");
+    svg.appendChild(capInner);
+
+    const glass = document.createElementNS(ns, "circle");
+    glass.setAttribute("cx", cx);
+    glass.setAttribute("cy", cy);
+    glass.setAttribute("r", r - 2);
+    glass.setAttribute("fill", "url(#" + baseId + "-glass)");
+    glass.setAttribute("pointer-events", "none");
+    svg.appendChild(glass);
+
+    if (titleTop) {
+      const tt = document.createElementNS(ns, "text");
+      tt.setAttribute("x", cx);
+      tt.setAttribute("y", cy - r - 20);
+      tt.setAttribute("text-anchor", "middle");
+      tt.setAttribute("fill", "#e8f1f8");
+      tt.setAttribute("font-size", "13");
+      tt.setAttribute("font-weight", "700");
+      tt.setAttribute("letter-spacing", "0.12em");
+      tt.setAttribute("font-family", "Segoe UI, sans-serif");
+      tt.setAttribute("style", "text-shadow: 0 1px 1px rgba(0,0,0,0.45)");
+      tt.textContent = titleTop;
+      svg.appendChild(tt);
+    }
+
+    const valText = document.createElementNS(ns, "text");
+    valText.setAttribute("x", cx);
+    valText.setAttribute("y", cy + 32);
+    valText.setAttribute("text-anchor", "middle");
+    valText.setAttribute("fill", "#f0f7fc");
+    valText.setAttribute("font-size", "15");
+    valText.setAttribute("font-weight", "700");
+    valText.setAttribute("font-family", "Segoe UI, sans-serif");
+    valText.setAttribute("style", "text-shadow: 0 1px 1px rgba(0,0,0,0.25)");
+    valText.textContent = "0 " + unit;
+    svg.appendChild(valText);
+
+    const lab = document.createElementNS(ns, "text");
+    lab.setAttribute("x", cx);
+    lab.setAttribute("y", cy + 50);
+    lab.setAttribute("text-anchor", "middle");
+    lab.setAttribute("fill", "#7a9ab8");
+    lab.setAttribute("font-size", "10");
+    lab.setAttribute("font-family", "Segoe UI, sans-serif");
+    lab.textContent = label;
+    svg.appendChild(lab);
+
+    document.getElementById(hostId).appendChild(svg);
+
+    return {
+      needle: needleRoot,
+      valText: valText,
+      labelEl: lab,
+      cx: cx,
+      cy: cy,
+      minV: minV,
+      maxV: maxV,
+      unit: unit,
+      unitScale: unitScale,
+    };
+  }
+
+  // server.py sends: suction_bar = req_pressure * 0.35 (~0-2.1 bar), so 4 bar max is safe
+  const suctionDial = createDialGauge("suction-gauge-host", {
+    titleTop: "Suction",
+    label: "Pressure",
+    minV: 0,
+    maxV: 4,
+    majors: [0, 1, 2, 3, 4],
+    unit: "bar",
+    unitScale: 1,
+    zoneStyle: "sdo",
+    zones: [
+      { from: 0,   to: 1.0, color: "#cc3344" },
+      { from: 1.0, to: 3.0, color: "#22aa55" },
+      { from: 3.0, to: 4.0, color: "#ff9922" },
+    ],
+  });
+
+  // server.py sends: discharge_bar = req_pressure * 1.05 + 0.8 (~1.8-6.5 bar), so 8 bar max
+  const dischargeDial = createDialGauge("discharge-gauge-host", {
+    titleTop: "Discharge",
+    label: "Pressure",
+    minV: 0,
+    maxV: 8,
+    majors: [0, 2, 4, 6, 8],
+    unit: "bar",
+    unitScale: 1,
+    zoneStyle: "sdo",
+    zones: [
+      { from: 0,   to: 2.0, color: "#cc3344" },
+      { from: 2.0, to: 6.0, color: "#22aa55" },
+      { from: 6.0, to: 8.0, color: "#ff9922" },
+    ],
+  });
+
+  // digital_twin.py: sim_pressure = 6.0 * (speed/100)^2, max = 6 bar
+  const mainDial = createDialGauge("main-gauge-host", {
+    titleTop: "Main",
+    label: "Pressure (sim)",
+    minV: 0,
+    maxV: 6,
+    majors: [0, 1, 2, 3, 4, 5, 6],
+    unit: "bar",
+    unitScale: 1,
+    zoneStyle: "main",
+    size: 260,
+    cx: 130,
+    cy: 132,
+    r: 98,
+    zones: [
+      { from: 0,   to: 2.0, color: "#3399ee" },
+      { from: 2.0, to: 4.5, color: "#22aa55" },
+      { from: 4.5, to: 6.0, color: "#ee3344" },
+    ],
+  });
+
+  mainDial.valText.setAttribute("font-size", "18");
+  mainDial.valText.setAttribute("y", "170");
+  if (mainDial.labelEl) {
+    mainDial.labelEl.setAttribute("y", "192");
+    mainDial.labelEl.setAttribute("font-size", "11");
+  }
+
+  let target = {
+    pump_speed: 55,
+    energy_kw: 2.2,
+    sim_pressure: 3.0,
+    req_pressure: 3.2,
+    valve: "ON",
+    suction_bar: 1.2,
+    discharge_bar: 4.0,
+  };
+
+  let display = {
+    pump_speed: 55,
+    energy_kw: 2.2,
+    sim_pressure: 3.0,
+    req_pressure: 3.2,
+    suction_bar: 1.2,
+    discharge_bar: 4.0,
+  };
+
+  // No separate needleAngles state — angles are computed directly in animate() from display values
+
+  let DEBUG = false;
+
+  const titleEl = document.querySelector("h1");
+  const statusEl = document.createElement("span");
+  statusEl.style.cssText = "font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; background: var(--ok); color: white; margin-left: 15px; vertical-align: middle; box-shadow: 0 0 8px rgba(109,155,122,0.4);";
+  statusEl.textContent = "🔄 Local Sync Active";
+  titleEl.appendChild(statusEl);
+
+  const debugBtn = document.createElement("button");
+  debugBtn.style.cssText = "position: absolute; top: 12px; right: 16px; background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem;";
+  debugBtn.textContent = "Debug: OFF";
+  debugBtn.onclick = () => {
+    DEBUG = !DEBUG;
+    debugBtn.textContent = "Debug: " + (DEBUG ? "ON" : "OFF");
+  };
+  document.body.appendChild(debugBtn);
+
+  function handleTelemetry(dataObj) {
+     if (DEBUG) console.log("Incoming Telemetry:", dataObj);
+     for (const [key, valArray] of Object.entries(dataObj)) {
+         if (valArray && valArray.length > 0) {
+             let latestVal = valArray[0];
+             if (Array.isArray(latestVal)) latestVal = latestVal[1]; 
+             else if (latestVal && latestVal.value !== undefined) latestVal = latestVal.value; 
+             
+             if (target.hasOwnProperty(key)) {
+                 if (key === 'valve') target[key] = latestVal;
+                 else target[key] = parseFloat(latestVal) || 0;
+             }
+         }
+     }
+     if (DEBUG) console.log("Target after update:", JSON.stringify({s: target.suction_bar, d: target.discharge_bar, m: target.sim_pressure}));
+  }
+
+  // Listen for direct sync from index.html Predict tab (Cross-tab sync)
+  window.addEventListener('storage', function(e) {
+      if (e.key === 'pump_simulator_sync' && e.newValue) {
+          try {
+              const syncData = JSON.parse(e.newValue);
+              if (DEBUG) console.log("Received Direct Local Sync from Predict Tab:", syncData);
+              // Map into handleTelemetry expected object format mapping key -> [{value: val}]
+              const mapped = {};
+              for(const [k, v] of Object.entries(syncData)) {
+                  mapped[k] = [{value: v}];
+              }
+              handleTelemetry(mapped);
+          } catch (err) {
+              if (DEBUG) console.error("Failed handling storage sync:", err);
+          }
+      }
+  });
+
+  const chartData = {
+    labels: [],
+    req: [],
+    sim: [],
+    maxPoints: 40,
+  };
+
+  const ctx = document.getElementById("press-chart").getContext("2d");
+  const chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: "req_pressure (bar)",
+          data: chartData.req,
+          borderColor: "#6b8ec9",
+          backgroundColor: "rgba(107,142,201,0.08)",
+          tension: 0.25,
+          fill: false,
+          pointRadius: 0,
+          borderWidth: 2,
+        },
+        {
+          label: "sim_pressure (bar)",
+          data: chartData.sim,
+          borderColor: "#6a9e7d",
+          backgroundColor: "rgba(106,158,125,0.08)",
+          tension: 0.25,
+          fill: false,
+          pointRadius: 0,
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      scales: {
+        x: {
+          grid: { color: "rgba(90,100,120,0.22)" },
+          ticks: { color: "#8b98ab", maxTicksLimit: 10 },
+        },
+        y: {
+          min: 0,
+          max: 6,
+          grid: { color: "rgba(90,100,120,0.22)" },
+          ticks: { color: "#8b98ab" },
+        },
+      },
+      plugins: {
+        legend: { labels: { color: "#b8c4d4" } },
+      },
+    },
+  });
+
+  const speedBar = document.getElementById("speed-bar");
+  const dispSpeed = document.getElementById("disp-speed");
+  const dispEnergy = document.getElementById("disp-energy");
+  const dispPress = document.getElementById("disp-press");
+  const valveEl = document.getElementById("valve-status");
+  const valveV1 = document.getElementById("valve-v1");
+  const valveV2 = document.getElementById("valve-v2");
+  const valveV1Lab = document.getElementById("valve-v1-label");
+  const valveV2Lab = document.getElementById("valve-v2-label");
+  const tankL = document.getElementById("tank-fill-left");
+  const tankR = document.getElementById("tank-fill-right");
+  const tankLevelLeft = document.getElementById("tank-level-left");
+  const tankLevelRight = document.getElementById("tank-level-right");
+  const flowPaths = ["flow-suction", "flow-bridge", "flow-dis"].map(function (id) {
+    return document.getElementById(id);
+  });
+
+  let tankSmooth = {
+    left: { y: 118, h: 72 },
+    right: { y: 62, h: 48 },
+  };
+
+  let flowOffset = 0;
+  let lastFlowTs = 0;
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function setNeedle(dial, val) {
+    // Calculate angle directly from value and dial's own min/max — no intermediate state
+    const angle = valueToAngle(val, dial.minV, dial.maxV);
+    if (DEBUG) console.log("setNeedle:", dial.minV, dial.maxV, val, "→ angle", angle.toFixed(1));
+    dial.needle.setAttribute("transform", "rotate(" + angle + " " + dial.cx + " " + dial.cy + ")");
+  }
+
+  function animate(ts) {
+    const dt = Math.min(0.05, (ts - (animate.lastTs || ts)) / 1000);
+    animate.lastTs = ts;
+    const smooth = 1 - Math.pow(0.001, dt / 0.15);
+
+    display.pump_speed    = lerp(display.pump_speed,    target.pump_speed,    smooth);
+    display.energy_kw     = lerp(display.energy_kw,     target.energy_kw,     smooth);
+    display.sim_pressure  = lerp(display.sim_pressure,  target.sim_pressure,  smooth);
+    display.req_pressure  = lerp(display.req_pressure,  target.req_pressure,  smooth);
+    display.suction_bar   = lerp(display.suction_bar,   target.suction_bar,   smooth);
+    display.discharge_bar = lerp(display.discharge_bar, target.discharge_bar, smooth);
+
+    dispSpeed.textContent = display.pump_speed.toFixed(1);
+    speedBar.style.width  = display.pump_speed + "%";
+    dispEnergy.textContent = display.energy_kw.toFixed(2);
+    dispPress.textContent  = display.sim_pressure.toFixed(2);
+
+    suctionDial.valText.textContent   = display.suction_bar.toFixed(2) + " bar";
+    dischargeDial.valText.textContent = display.discharge_bar.toFixed(2) + " bar";
+    mainDial.valText.textContent      = display.sim_pressure.toFixed(2) + " bar";
+
+    // Needles calculated freshly from smoothed display values — no stale angle cache
+    setNeedle(suctionDial,   display.suction_bar);
+    setNeedle(dischargeDial, display.discharge_bar);
+    setNeedle(mainDial,      display.sim_pressure);
+
+    const open = target.valve === "ON";
+    valveEl.textContent = open ? "🟢 VALVE OPEN" : "🔴 VALVE CLOSED";
+    valveEl.className = "valve-row " + (open ? "valve-open" : "valve-closed");
+    if (valveV1) {
+      valveV1.setAttribute("stroke", open ? "#5d8a6a" : "#9a5a5a");
+      valveV1.setAttribute("stroke-width", "1.5");
+      valveV1.setAttribute("fill", open ? "#2d4538" : "#4a2f32");
+    }
+    if (valveV2) {
+      valveV2.setAttribute("stroke", open ? "#5d8a6a" : "#9a5a5a");
+      valveV2.setAttribute("stroke-width", "1.5");
+      valveV2.setAttribute("fill", open ? "#2d4538" : "#4a2f32");
+    }
+    if (valveV1Lab) valveV1Lab.setAttribute("fill", open ? "#d8e8dc" : "#ecd4d4");
+    if (valveV2Lab) valveV2Lab.setAttribute("fill", open ? "#d8e8dc" : "#ecd4d4");
+
+    const fillL = 48 + (display.suction_bar / suctionDial.maxV) * 100;
+    const targetY1 = 190 - fillL;
+    tankSmooth.left.y = lerp(tankSmooth.left.y, targetY1, smooth);
+    tankSmooth.left.h = lerp(tankSmooth.left.h, fillL, smooth);
+    tankL.setAttribute("y", tankSmooth.left.y);
+    tankL.setAttribute("height", tankSmooth.left.h);
+
+    const fillR = 22 + (display.discharge_bar / dischargeDial.maxV) * 88;
+    const targetY2 = 110 - fillR;
+    tankSmooth.right.y = lerp(tankSmooth.right.y, targetY2, smooth);
+    tankSmooth.right.h = lerp(tankSmooth.right.h, fillR, smooth);
+    tankR.setAttribute("y", tankSmooth.right.y);
+    tankR.setAttribute("height", tankSmooth.right.h);
+
+    if (tankLevelLeft) {
+      const mL = 8 + (display.suction_bar / suctionDial.maxV) * 34;
+      tankLevelLeft.textContent = mL.toFixed(1) + " m";
+      tankLevelLeft.setAttribute("y", tankSmooth.left.y + tankSmooth.left.h / 2);
+    }
+    if (tankLevelRight) {
+      const mR = 12 + (display.discharge_bar / dischargeDial.maxV) * 38;
+      tankLevelRight.textContent = mR.toFixed(1) + " m";
+      tankLevelRight.setAttribute("y", tankSmooth.right.y + tankSmooth.right.h / 2);
+    }
+
+    const flowing = open && display.pump_speed > 22;
+    flowPaths.forEach(function (p) {
+      if (!p) return;
+      p.setAttribute("opacity", flowing ? "0.42" : "0.12");
+      p.setAttribute("stroke", flowing ? "#8a9e92" : "#4e5852");
+    });
+
+    if (ts - lastFlowTs > 16) {
+      lastFlowTs = ts;
+      flowOffset = (flowOffset + (open ? 1.2 : 0.15)) % 100;
+      flowPaths.forEach(function (p) {
+        if (p) p.setAttribute("stroke-dashoffset", String(-flowOffset));
+      });
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  function pushChart() {
+    const t = new Date().toLocaleTimeString();
+    chartData.labels.push(t);
+    chartData.req.push(target.req_pressure);
+    chartData.sim.push(target.sim_pressure);
+    if (chartData.labels.length > chartData.maxPoints) {
+      chartData.labels.shift();
+      chartData.req.shift();
+      chartData.sim.shift();
+    }
+    chart.update("none");
+  }
+
+  // Waiting for cross-tab sync to trigger handleTelemetry
+  pushChart();
+
+  setInterval(function () {
+    pushChart();
+  }, 1000);
+
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

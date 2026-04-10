@@ -526,7 +526,7 @@
     <!-- TAB: PREDICT -->
     <div id="predict" class="tab-content">
         <div class="card">
-            <div class="card-title">Real-time Parameters <button class="btn" style="background: #f1f5f9; padding: 0.5rem 1rem;" onclick="loadSample()">Load Preset</button></div>
+            <div class="card-title">Real-time Parameters <button type="button" class="btn" style="background: #f1f5f9; padding: 0.5rem 1rem;" onclick="loadSample(); return false;">Load Preset</button></div>
             <div class="form-grid">
                 <div class="input-group"><label>Target Floor</label><select id="p-floor"><option>1</option><option>2</option><option value="3">3</option><option>4</option><option>5</option><option>6</option></select></div>
                 <div class="input-group"><label>Occupancy (People)</label><input type="number" value="12" id="p-people"></div>
@@ -540,12 +540,12 @@
                 <input type="hidden" id="p-valve" value="1">
             </div>
             <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
-                <button class="btn btn-primary" onclick="executePrediction()">Execute Prediction</button>
+                <button type="button" class="btn btn-primary" onclick="executePrediction(); return false;">Execute Prediction</button>
                 <div class="input-group" style="width: 120px;">
                     <label style="font-size: 0.7rem;">Batch Size</label>
                     <input type="number" id="batch-size-input" value="100" min="1" max="1000">
                 </div>
-                <button class="btn" style="background: white; border: 1px solid var(--border);" onclick="triggerBatch()">Generate & Batch</button>
+                <button type="button" class="btn" style="background: white; border: 1px solid var(--border);" onclick="triggerBatch(); return false;">Generate & Batch</button>
                 <div class="input-group" style="flex-grow:1; min-width:300px;">
                     <label style="font-size: 0.7rem; color: var(--accent);">Upload Custom Dataset (CSV)</label>
                     <input type="file" id="csv-upload" accept=".csv" style="padding: 0.5rem; border-style: dashed;" onchange="handleCsvUpload(event)">
@@ -574,7 +574,7 @@
     <!-- TAB: RESULTS -->
     <div id="results" class="tab-content">
         <div class="card">
-            <div class="card-title">System Log <button class="btn btn-primary" onclick="downloadCSV()" style="font-size: 0.8rem; height: 35px;">Export CSV</button></div>
+            <div class="card-title">System Log <button type="button" class="btn btn-primary" onclick="downloadCSV(); return false;" style="font-size: 0.8rem; height: 35px;">Export CSV</button></div>
             <div class="table-container">
                 <table id="log-table">
                     <thead>
@@ -715,9 +715,34 @@
             document.getElementById('res-w').textContent = d.predicted_water_amount_liters;
             document.getElementById('res-ai').textContent = d.analysis;
 
-            updateChart(d.required_pressure_bar, d.required_flow_rate_lpm, d.pump_speed_percent);
             document.getElementById('prediction-panel').style.display = 'block';
-        } catch(e) { alert("Backend offline. Start server.py first!"); }
+            updateChart(d.required_pressure_bar, d.required_flow_rate_lpm, d.pump_speed_percent);
+
+            // Push locally to Simulator Dashboard via localStorage cross-tab sync
+            const telemetryPayload = {
+                pump_speed: d.pump_speed_percent,
+                req_pressure: d.required_pressure_bar,
+                sim_pressure: d.digital_twin ? d.digital_twin.simulated_pressure_bar : d.required_pressure_bar, 
+                suction_bar: Math.max(0, d.required_pressure_bar * 0.35 + (Math.random()-0.5)*0.1),
+                discharge_bar: Math.max(0, d.required_pressure_bar * 1.05 + 0.8),
+                valve: d.valve_command,
+                energy_kw: d.digital_twin ? d.digital_twin.energy_consumption_kw : (d.pump_speed_percent / 100) * 4.2
+            };
+
+            localStorage.setItem('pump_simulator_sync', JSON.stringify(telemetryPayload));
+
+            // Ensure the result updates the RESULTS table too
+            const tbody = document.querySelector('#log-table tbody');
+            const rowCount = tbody.querySelectorAll('tr').length + (tbody.querySelector('td[colspan="8"]') ? 0 : 1);
+            if(tbody.querySelector('td[colspan="8"]')) tbody.innerHTML = '';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${rowCount}</td><td>${d.floor}</td><td>${d.time_slot}</td><td>${d.required_pressure_bar}</td><td>${d.required_flow_rate_lpm}</td><td>${d.pump_speed_percent}%</td><td>${d.valve_command}</td><td>${d.predicted_water_amount_liters}</td>`;
+            tbody.appendChild(tr);
+
+        } catch(e) { 
+            console.error("Prediction UI Error / Fetch Error:", e);
+            alert("Error displaying results or connecting to backend. Check console: " + e.message); 
+        }
     }
 
     function updateChart(p,f,s) {

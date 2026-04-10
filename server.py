@@ -34,6 +34,7 @@ app.add_middleware(
 # --- GLOBAL MODEL STATE ---
 model = None
 encoder = LabelEncoder()
+latest_telemetry_payload = {}
 feature_cols = ['floor_no', 'time_slot_encoded', 'current_pressure', 'flow_rate', 'tank_level', 'people_count', 'height_from_ground', 'previous_usage']
 target_cols = ['required_pressure', 'required_flow_rate', 'pump_speed', 'valve_command', 'water_allocated']
 
@@ -168,13 +169,20 @@ async def predict(req: PredictRequest):
         log_prediction(result)
         
         # --- CLOUD SYNC ---
+        req_pressure_val = result['required_pressure_bar']
         cloud_payload = {
-            "req_pressure": result['required_pressure_bar'],
+            "req_pressure": req_pressure_val,
             "pump_speed": pump_speed,
             "sim_pressure": simulation['simulated_pressure_bar'],
-            "energy_kw": simulation['energy_consumption_kw'],
-            "valve": result['valve_command']
+            "suction_bar": max(0.0, req_pressure_val * 0.35 + np.random.uniform(-0.05, 0.05)),
+            "discharge_bar": max(0.0, req_pressure_val * 1.05 + 0.8),
+            "valve": result['valve_command'],
+            "energy_kw": simulation['energy_consumption_kw']
         }
+        
+        global latest_telemetry_payload
+        latest_telemetry_payload = cloud_payload
+        
         send_telemetry_to_cloud(cloud_payload)
         
         return {
@@ -183,6 +191,10 @@ async def predict(req: PredictRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/telemetry/latest")
+async def get_latest_telemetry():
+    return latest_telemetry_payload
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
