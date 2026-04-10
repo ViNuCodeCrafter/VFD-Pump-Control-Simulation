@@ -208,7 +208,7 @@
     <div class="gauge-panel" id="suction-gauge-host"></div>
     <div class="center-col">
       <div class="pipe-svg-wrap">
-        <svg id="pipe-system" viewBox="0 0 400 220" width="100%" height="auto" aria-label="Pipe system">
+        <svg id="pipe-system" viewBox="0 0 400 240" width="100%" height="auto" aria-label="Pipe system">
           <defs>
             <linearGradient id="tankGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" style="stop-color:#3d4a5c" />
@@ -244,8 +244,6 @@
           </g>
           <text id="tank-level-left" x="40" y="154" text-anchor="middle" dominant-baseline="middle" fill="#d8e4ec"
             font-size="11" font-weight="600" font-family="Segoe UI,sans-serif">—</text>
-          <text x="40" y="200" text-anchor="middle" fill="#7a9ab8" font-size="9" font-family="Segoe UI,sans-serif" letter-spacing="0.08em">SUCTION</text>
-          <text x="40" y="210" text-anchor="middle" fill="#5a7a8a" font-size="8" font-family="Segoe UI,sans-serif">water head</text>
           <path id="pipe-suction" fill="none" stroke="url(#pipeSteel)" stroke-width="18" stroke-linecap="round"
             stroke-linejoin="round" d="M 40 192 L 70 192 A 14 14 0 0 1 84 178 L 84 144 L 126 144" />
           <path id="flow-suction" fill="none" stroke="#7a8f88" stroke-width="3.5" stroke-dasharray="7 11"
@@ -287,8 +285,11 @@
           </g>
           <text id="tank-level-right" x="348" y="80" text-anchor="middle" dominant-baseline="middle" fill="#d8e4ec"
             font-size="11" font-weight="600" font-family="Segoe UI,sans-serif">—</text>
-          <text x="348" y="120" text-anchor="middle" fill="#7a9ab8" font-size="9" font-family="Segoe UI,sans-serif" letter-spacing="0.08em">DISCHARGE</text>
-          <text x="348" y="130" text-anchor="middle" fill="#5a7a8a" font-size="8" font-family="Segoe UI,sans-serif">water head</text>
+          <!-- Tank labels rendered LAST so they appear above pipes -->
+          <text x="40" y="216" text-anchor="middle" fill="#8aaabb" font-size="9" font-weight="600" font-family="Segoe UI,sans-serif" letter-spacing="0.08em">SUCTION</text>
+          <text x="40" y="226" text-anchor="middle" fill="#5a7a8a" font-size="8" font-family="Segoe UI,sans-serif">water head</text>
+          <text x="348" y="148" text-anchor="middle" fill="#8aaabb" font-size="9" font-weight="600" font-family="Segoe UI,sans-serif" letter-spacing="0.08em">DISCHARGE</text>
+          <text x="348" y="158" text-anchor="middle" fill="#5a7a8a" font-size="8" font-family="Segoe UI,sans-serif">water head</text>
         </svg>
       </div>
       <div class="valve-row" id="valve-status">🟢 VALVE OPEN</div>
